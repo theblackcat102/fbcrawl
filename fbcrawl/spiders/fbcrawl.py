@@ -190,13 +190,14 @@ class FacebookSpider(scrapy.Spider):
             new.add_xpath('url', ".//a[contains(@href,'footer')]/@href")
             new.context['lang'] = self.lang
             #page_url #new.add_value('url',response.url)
+            self.count -= 1
+
             check_item = new.load_item()
             if Post.select().where(Post.url == check_item['url']).exists():
                 continue
             #returns full post-link in a list
             post = post.xpath(".//a[contains(@href,'footer')]/@href").extract() 
             temp_post = response.urljoin(post[0])
-            self.count -= 1
             yield scrapy.Request(temp_post, self.parse_post, priority=0, meta={'item':new})
 
         #load following page, try to click on "more"
