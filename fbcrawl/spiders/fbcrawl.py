@@ -5,6 +5,7 @@ from scrapy.loader import ItemLoader
 from scrapy.http import FormRequest
 from scrapy.exceptions import CloseSpider
 from fbcrawl.items import FbcrawlItem, parse_date, parse_date2
+from postgres.models import Post
 from datetime import datetime
 import random
 class FacebookSpider(scrapy.Spider):
@@ -188,7 +189,9 @@ class FacebookSpider(scrapy.Spider):
             new.add_xpath('post_id','./@data-ft')
             new.add_xpath('url', ".//a[contains(@href,'footer')]/@href")
             #page_url #new.add_value('url',response.url)
-            
+            check_item = new.load_item()
+            if Post.select().where(Post.url == check_item['url']).exists():
+                continue
             #returns full post-link in a list
             post = post.xpath(".//a[contains(@href,'footer')]/@href").extract() 
             temp_post = response.urljoin(post[0])
