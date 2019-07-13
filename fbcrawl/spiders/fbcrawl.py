@@ -47,6 +47,8 @@ class FacebookSpider(scrapy.Spider):
             self.logger.info('Crawl image as well!')
             self.parse_image = True
 
+        if 'ignore_existed' not in kwargs:
+            self.ignore_existed = False
         urls = []
         for url in self.pages.split(','):
             if url.find('/groups/') != -1:
@@ -193,7 +195,7 @@ class FacebookSpider(scrapy.Spider):
             self.count -= 1
 
             check_item = new.load_item()
-            if Post.select().where(Post.url == check_item['url']).exists():
+            if self.ignore_existed and Post.select().where(Post.url == check_item['url']).exists():
                 continue
             #returns full post-link in a list
             post = post.xpath(".//a[contains(@href,'footer')]/@href").extract() 
