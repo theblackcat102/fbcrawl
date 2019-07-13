@@ -188,6 +188,7 @@ class FacebookSpider(scrapy.Spider):
             new.add_value('date',date)
             new.add_xpath('post_id','./@data-ft')
             new.add_xpath('url', ".//a[contains(@href,'footer')]/@href")
+            new.context['lang'] = self.lang
             #page_url #new.add_value('url',response.url)
             check_item = new.load_item()
             if Post.select().where(Post.url == check_item['url']).exists():
@@ -249,7 +250,7 @@ class FacebookSpider(scrapy.Spider):
 
     def parse_post(self, response):
         new = ItemLoader(item=FbcrawlItem(),response=response,parent=response.meta['item'])
-        new.context['lang'] = self.lang           
+        new.context['lang'] = self.lang
         new.add_xpath('source', "//td/div/h3/strong/a/text() | //span/strong/a/text() | //div/div/div/a[contains(@href,'post_id')]/strong/text()")
         new.add_xpath('shared_from','//div[contains(@data-ft,"top_level_post_id") and contains(@data-ft,\'"isShare":1\')]/div/div[3]//strong/a/text()')
      #   new.add_xpath('date','//div/div/abbr/text()')
