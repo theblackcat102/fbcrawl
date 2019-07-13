@@ -11,6 +11,7 @@ This fork stores each items into postgresql database
 
 * support postgresql storage pipeline
 
+* include post image crawler default is False, use -a image True
 
 ## Setup
 

@@ -41,6 +41,11 @@ class FacebookSpider(scrapy.Spider):
             raise AttributeError('Please provide page url')
         if 'page' in kwargs:
             self.pages = self.page
+        self.parse_image = False
+        if 'image' in kwargs and kwargs['image']:
+            self.logger.info('Crawl image as well!')
+            self.parse_image = True
+
         urls = []
         for url in self.pages.split(','):
             if url.find('/groups/') != -1:
@@ -88,6 +93,7 @@ class FacebookSpider(scrapy.Spider):
         self.k = datetime.now().year
         #count number of posts, used to enforce DFS and insert posts orderly in the csv
         self.count = 0
+        self.page_priorty = 0
         
         self.start_urls = ['https://mbasic.facebook.com']    
 
@@ -173,10 +179,9 @@ class FacebookSpider(scrapy.Spider):
             #if 'date' argument is reached stop crawling
             if self.date > current_date:
                 raise CloseSpider('Reached date: {}'.format(self.date))
-
+            if abs(self.count) > self.max:
+                raise CloseSpider(reason='Reach max post limit')
             new = ItemLoader(item=FbcrawlItem(),selector=post)
-            if abs(self.count) + 1 > self.max:
-                raise CloseSpider('Reached max num of post: {}. Crawling finished'.format(abs(self.count)))
             self.logger.info('Parsing post n = {}, post_date = {}'.format(abs(self.count)+1,date))
             new.add_xpath('comments', './div[2]/div[2]/a[1]/text()')     
             new.add_value('date',date)
@@ -188,7 +193,7 @@ class FacebookSpider(scrapy.Spider):
             post = post.xpath(".//a[contains(@href,'footer')]/@href").extract() 
             temp_post = response.urljoin(post[0])
             self.count -= 1
-            yield scrapy.Request(temp_post, self.parse_post, priority = self.count, meta={'item':new})       
+            yield scrapy.Request(temp_post, self.parse_post, priority=0, meta={'item':new})
 
         #load following page, try to click on "more"
         #after few pages have been scraped, the "more" link might disappears 
@@ -208,11 +213,13 @@ class FacebookSpider(scrapy.Spider):
             if response.meta['flag'] == self.k and self.k >= self.year:                
                 xpath = "//div/a[contains(@href,'time') and contains(text(),'" + str(self.k) + "')]/@href"
                 new_page = response.xpath(xpath).extract()
+                self.page_priorty -= 1
                 if new_page:
                     new_page = response.urljoin(new_page[0])
                     self.k -= 1
                     self.logger.info('Found a link for year "{}", new_page = {}'.format(self.k,new_page))
-                    yield scrapy.Request(new_page, callback=self.parse_page, meta={'flag':self.k})
+
+                    yield scrapy.Request(new_page, callback=self.parse_page, priority=self.page_priorty, meta={'flag':self.k})
                 else:
                     while not new_page: #sometimes the years are skipped this handles small year gaps
                         self.logger.info('Link not found for year {}, trying with previous year {}'.format(self.k,self.k-1))
@@ -224,19 +231,20 @@ class FacebookSpider(scrapy.Spider):
                     self.logger.info('Found a link for year "{}", new_page = {}'.format(self.k,new_page))
                     new_page = response.urljoin(new_page[0])
                     self.k -= 1
-                    yield scrapy.Request(new_page, callback=self.parse_page, meta={'flag':self.k}) 
+                    yield scrapy.Request(new_page, callback=self.parse_page, priority=self.page_priorty, meta={'flag':self.k}) 
             else:
                 self.logger.info('Crawling has finished with no errors!')
         else:
             new_page = response.urljoin(new_page[0])
+            self.page_priorty -= 1
             if 'flag' in response.meta:
                 self.logger.info('Page scraped, clicking on "more"! new_page = {}'.format(new_page))
-                yield scrapy.Request(new_page, callback=self.parse_page, meta={'flag':response.meta['flag']})
+                yield scrapy.Request(new_page, callback=self.parse_page, priority=self.page_priorty, meta={'flag':response.meta['flag']})
             else:
                 self.logger.info('First page scraped, clicking on "more"! new_page = {}'.format(new_page))
-                yield scrapy.Request(new_page, callback=self.parse_page, meta={'flag':self.k})
-                
-    def parse_post(self,response):
+                yield scrapy.Request(new_page, callback=self.parse_page, priority=self.page_priorty, meta={'flag':self.k})
+
+    def parse_post(self, response):
         new = ItemLoader(item=FbcrawlItem(),response=response,parent=response.meta['item'])
         new.context['lang'] = self.lang           
         new.add_xpath('source', "//td/div/h3/strong/a/text() | //span/strong/a/text() | //div/div/div/a[contains(@href,'post_id')]/strong/text()")
@@ -245,21 +253,75 @@ class FacebookSpider(scrapy.Spider):
         new.add_xpath('text','//div[@data-ft]//p//text() | //div[@data-ft]/div[@class]/div[@class]/text()')
         #check reactions for old posts
         check_reactions = response.xpath("//a[contains(@href,'reaction/profile')]/div/div/text()").get()
-        if not check_reactions:
-            yield new.load_item()       
-        else:
-            new.add_xpath('reactions',"//a[contains(@href,'reaction/profile')]/div/div/text()")              
+
+        if check_reactions: 
+            new.add_xpath('reactions',"//a[contains(@href,'reaction/profile')]/div/div/text()")
             reactions = response.xpath("//div[contains(@id,'sentence')]/a[contains(@href,'reaction/profile')]/@href")
             reactions = response.urljoin(reactions[0].extract())
-            yield scrapy.Request(reactions, callback=self.parse_reactions, meta={'item':new})
-        
+            reaction_payload = {
+                'check': True,
+                'url': reactions
+            }
+        else:
+            reaction_payload = {
+                'check': False,
+            }
+
+        image_path = response.xpath('//div[@data-ft]/div[@class]/a/@href')
+        if image_path.get() and self.parse_image:
+            image_urls = image_path
+            img_prefix = '/photo.php'
+            found_img_urls = []
+            for selected_url in image_urls:
+                url = selected_url.extract()
+                if img_prefix in url:
+                    found_img_urls.append(response.urljoin(url))
+            if len(found_img_urls) > 0:
+                first_url = found_img_urls.pop()
+                yield scrapy.Request(first_url, callback=self.download_image,  
+                    meta = {'remaining_images' : found_img_urls, 'item': new, 'img_urls': [], 'check_reactions': reaction_payload })
+            else:
+                yield new.load_item()
+        else:
+            new.add_value('image_urls', [])
+            if reaction_payload['check']:
+                yield scrapy.Request(reaction_payload['url'], callback=self.parse_reactions, meta={'item':new})
+            else:
+                yield new.load_item()
+
+    def download_image(self, response):
+        # full_img_url = response.xpath('//a[contains(text(), "View")')
+        img_urls = response.meta['img_urls']
+        remaining_images = response.meta['remaining_images']
+        new = ItemLoader(item=FbcrawlItem(),response=response, parent=response.meta['item'])
+        new.context['lang'] = self.lang
+
+        CDN_DOMAIN_MATCH = 'https://scontent-tpe1-1.xx.fbcdn.net'
+        for img_element in response.xpath('//img/@src'):
+            img_url = img_element.extract()
+            if 'scontent' in img_url:
+                 img_urls.append(img_url)
+                 break
+
+        if len(remaining_images) > 0:
+            img_url = remaining_images.pop()
+            yield scrapy.Request(img_url, callback=self.download_image, 
+                meta={'remaining_images' : remaining_images, 'item': new, 'img_urls': img_urls, 'check_reactions': response.meta['check_reactions'] })
+        else:
+            new.add_value('image_urls', img_urls)
+            reaction_payload = response.meta['check_reactions']
+            if reaction_payload['check']:
+                yield scrapy.Request(reaction_payload['url'], callback=self.parse_reactions, meta={'item':new})
+            else:
+                yield new.load_item()
+
     def parse_reactions(self,response):
         new = ItemLoader(item=FbcrawlItem(),response=response, parent=response.meta['item'])
-        new.context['lang'] = self.lang           
+        new.context['lang'] = self.lang
         new.add_xpath('likes',"//a[contains(@href,'reaction_type=1')]/span/text()")
         new.add_xpath('ahah',"//a[contains(@href,'reaction_type=4')]/span/text()")
         new.add_xpath('love',"//a[contains(@href,'reaction_type=2')]/span/text()")
         new.add_xpath('wow',"//a[contains(@href,'reaction_type=3')]/span/text()")
         new.add_xpath('sigh',"//a[contains(@href,'reaction_type=7')]/span/text()")
         new.add_xpath('grrr',"//a[contains(@href,'reaction_type=8')]/span/text()")     
-        yield new.load_item()       
+        yield new.load_item()

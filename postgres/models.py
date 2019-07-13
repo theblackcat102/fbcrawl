@@ -1,5 +1,6 @@
 from peewee import *
 from postgres.settings import postgres_database, TIMEZONE
+from playhouse.postgres_ext import ArrayField
 from datetime import datetime
 from pytz import timezone
 import shortuuid
@@ -23,6 +24,7 @@ class Post(Model):
     sigh = IntegerField(default=0)
     grr = IntegerField(default=0)
     comment_count = IntegerField(default=0)
+    images = ArrayField(CharField, default=[])
     inserted = DateTimeField(default=timezone_now)
 
     class Meta:

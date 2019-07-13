@@ -25,7 +25,7 @@ FB_EMAIL = os.getenv("FB_EMAIL")
 FB_PASSWORD = os.getenv("FB_PASSWORD")
 # Configure maximum concurrent requests performed by Scrapy (default: 16)
 CONCURRENT_REQUESTS = 16
-
+COOKIES_ENABLED = True
 # Configure a delay for requests for the same website (default: 0)
 # See https://doc.scrapy.org/en/latest/topics/settings.html#download-delay
 # See also autothrottle settings and docs
@@ -68,7 +68,8 @@ TELNETCONSOLE_ENABLED = False
 # Configure item pipelines
 # See https://doc.scrapy.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
-   'fbcrawl.pipelines.PostgresPostPipeline': 300,
+   # 'fbcrawl.pipelines.PostgresPostPipeline': 300,
+   'fbcrawl.pipelines.PostImagePipeline': 300,
 }
 
 # Enable and configure the AutoThrottle extension (disabled by default)
@@ -97,3 +98,5 @@ FEED_EXPORT_ENCODING = 'utf-8'
 DUPEFILTER_DEBUG = True
 LOG_LEVEL = 'INFO'
 #LOG_LEVEL = 'DEBUG'
+
+IMAGES_STORE = '/Users/theblackcat/Desktop/fbcrawl/images/'

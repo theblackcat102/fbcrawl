@@ -623,6 +623,10 @@ class FbcrawlItem(scrapy.Item):
         output_processor=id_strip
     )
     shared_from = scrapy.Field()
+    images = scrapy.Field()
+    image_paths = scrapy.Field()
+    image_urls = scrapy.Field()
+
 
 class CommentsItem(scrapy.Item):
     source = scrapy.Field()
