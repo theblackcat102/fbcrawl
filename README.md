@@ -5,7 +5,7 @@ This fork stores each items into postgresql database
 
 ## Modification from original repo
 
-* added more date format
+* support the latest date format
 
 * support for multiple facebook page urls, example : -a pages "URL1,URL2"
 
@@ -37,8 +37,16 @@ FB_PASSWORD="your facebook password"
 
 The third .env should be place under postgres directory, the format is same as the first one
 
+* Image crawler
 
-## DONATIONS
+You also need to update the image store path in fbcrawl/settings.py
+
+```
+IMAGES_STORE = '/path-to-store-image/fbcrawl/images/'
+```
+
+
+## DONATIONS TO THE ORIGINAL AUTHOR @rugantio
 Fbcrawl is free software. It is not "free as beer" nor "free as speech", it is "free as a toilet": it is always available and working, but someone as to keep it clean and tidy, and I am the only one at the moment, it is not a community project. Please consider make a donation, it will keep this project alive and if I see actual interest from people I will get on with the [TODO](https://github.com/rugantio/fbcrawl/blob/master/README.md#TODO) list. One of the my long-term goal is to refactor the framework with a gui, connections to databases and graph vizualitations. These tasks would take at least a couple of months of work, and I will be able to afford them only with your support! Thank you :)
 
 [![paypal](https://www.paypalobjects.com/en_US/IT/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=G96T8U8W7UZDL&currency_code=EUR&source=url)
@@ -50,10 +58,6 @@ This software is provided as is, for educational purposes, to show how a crawler
 
 # Introduction
 
-<div style="text-align:center">
-<img src="./trump.png" alt="Donald Trump" width="1080">
-</div>
-
 EDIT: fbcrawl can now crawl comments! check out the "how to crawl comments" section!
 
 What features can fbcrawl obtain? Everything that you see in the table is crawled by default. I decided to simplify the timestamp feature, leaving out the hour and to ignore comments and commentators, which are going to be parsed post-by-post by another crawler.
@@ -61,11 +65,15 @@ What features can fbcrawl obtain? Everything that you see in the table is crawle
 Fbcrawl makes use of an static mobile version of facebook, unknown to many: [https://mbasic.facebook.com](https://mbasic.facebook.com) because it's all plain HTML and we can navigate easily through the pages without having to emulate a browser or inject javascript code.
 
 ## Installation
-Requirements are: **python3** (python2 is also supported) and the  **scrapy** framework, that should pull other needed libs as dependencies (twisted, libxml2 etc.).
 
-Scrapy can be installed through the package manager of the distribution (in my arch box is simply called "scrapy") or through internal python package system, typing:
+```
+$ virtuelenv -p python3 env
 
- ```pip install scrapy```
+$ source env/bin/activate
+
+(env)$ pip install -r requirements.txt
+
+```
 
 ## Architecture
 The way scrapy works is through an engine that manages granularly every step of the crawling process.
@@ -248,7 +256,7 @@ Some other interesting features can be derived. Comments and commentators can be
 
 Better handling of data:
 * merge comments and posts and use JSON instead of CSV
-* add postgresql pipeline for simple CSV
+* ~~add postgresql pipeline for simple CSV~~
 * add mongodb pipeline for more complex JSON
 
 Integrate data visualization:
