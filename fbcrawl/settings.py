@@ -55,9 +55,14 @@ TELNETCONSOLE_ENABLED = False
 
 # Enable or disable downloader middlewares
 # See https://doc.scrapy.org/en/latest/topics/downloader-middleware.html
-#DOWNLOADER_MIDDLEWARES = {
-#    'fbcrawl.middlewares.FbcrawlDownloaderMiddleware': 543,
-#}
+DOWNLOADER_MIDDLEWARES = {
+   'scrapy.downloadermiddlewares.httpauth.HttpAuthMiddleware': 100,
+   'scrapy.downloadermiddlewares.downloadtimeout.DownloadTimeoutMiddleware': 200,
+   'scrapy.downloadermiddlewares.redirect.MetaRefreshMiddleware': 300,
+   'scrapy.downloadermiddlewares.httpcompression.HttpCompressionMiddleware': 400,
+   'scrapy.downloadermiddlewares.redirect.RedirectMiddleware': 500,
+   'scrapy.downloadermiddlewares.cookies.CookiesMiddleware': 600,
+}
 
 # Enable or disable extensions
 # See https://doc.scrapy.org/en/latest/topics/extensions.html
